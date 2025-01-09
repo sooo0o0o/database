@@ -182,3 +182,169 @@ SELECT * FROM `Sales` WHERE `year`=2020;
 SELECT MAX(sale) AS `2020 매출 최대값` FROM `Sales` WHERE `year`=2020;
 SELECT MIN(sale) AS `2020 매출 최소값` FROM `Sales` WHERE `year`=2020;
 
+#실습 4-10
+#버전이 바뀌면서 전체 범위 그룹이 지원되지 않아서 row#188-189 추가
+
+select @@sql_mode;
+set session sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
+select * from `sales` Group by `uid`;	
+select * from `sales` group by `year`;
+select * from `sales` group by `uid`, `year`;
+
+select `uid`, count(*) as `건수`  from `sales` group by `uid`;	#각 uid의 sales 건수
+select `uid`, sum(sale) as `합계` from `sales` group by `uid`;
+select `uid`, avg(sale) as `평균` from `sales` group by `uid`;
+
+select `uid`, `year`, sum(sale) as `합계`
+from `sales`
+group by `uid`, `year`;	
+select `uid`, `year`, sum(sale) as `합계`
+from `sales`
+group by `uid`, `year`
+order by `year` asc, `합계` desc;
+select `uid`, `year`, sum(sale) as `합계`
+from `sales`
+where `sale` >= 50000
+group by `uid`, `year`
+order by `합계` desc;
+
+#실습 4-11
+select `uid`, sum(sale) as `합계` from `sales`
+group by `uid`
+having `합계` >= 200000;
+
+select `uid`, `year`, sum(sale) as `합계`
+from `sales`
+where `sale` >= 100000	
+group by `uid`, `year`
+having `합계` >= 200000
+order by `합계` desc;
+
+
+#4-12 실습 UNION ( 테이블 합치기 )
+create table `sales2` like `sales`;
+insert into `sales2` select * from `sales`;
+update `sales2` set `year` = `year`+ 3;
+
+update `sales` set `year` = `year`- 3;
+
+select * from `sales` union select * from `sales2`;
+select * from `sales` where `sale` >= 100000 
+union
+select * from `sales2` where `sale` >=100000;
+
+select `uid`, `year`, `sale` from `sales`
+union
+select `uid`, `year` , `sale` from `sales2`;
+
+
+SELECT `uid`,`year`, SUM(sale) AS `합계`
+FROM `Sales`
+group by `uid`,`year`
+UNION
+SELECT `uid`,`year`, SUM(sale) AS `합계`
+FROM `Sales2`
+GROUP BY `uid`, `year`
+ORDER BY `year` ASC, `합계` DESC;
+
+SELECT * FROM `Sales` INNER JOIN `Member` ON `Sales` .uid = `Member`.uid;
+SELECT * from `member` inner join `department` on `member`.dep = `department` .depNo;
+
+SELECT * FROM `SALES` AS A 
+JOIN `MEMBER` AS B 
+ON A.UID = B.UID;		# row# 249랑 동일하나, 별칭 A, B 를 붙여서 한것 
+# row#254 는  USING ('UID')로 대체 가능
+
+SELECT * FROM `MEMBER` AS A 
+JOIN `DEPARTMENT` AS B 
+ON A.DEP = B.DEPNO; 	# = row#250 , BUT AS 'A', 'B'
+
+SELECT * FROM `SALES` AS A, 
+`MEMBER` AS B 
+WHERE A.UID = B.UID;		#JOIN 생략 가능?
+
+SELECT * FROM `MEMBER` AS A, 
+`DEPARTMENT` AS B 
+WHERE A.DEP = B.DEPNO;
+
+SELECT 
+A.`SEQ`, A.`UID`, `SALE`, `NAME`, `POS` FROM `SALES` AS A 
+JOIN `MEMBER` AS B 
+ON A.`UID` = B.`UID`;
+
+SELECT 
+A.`SEQ`, A.`UID`, `SALE`, `NAME`, `POS` FROM `SALES` AS A
+JOIN `MEMBER` AS B USING (`UID`);
+
+SELECT
+A.`SEQ`, A.`UID`,`SALE`, `NAME`, `POS` FROM `SALES` AS A
+JOIN `MEMBER` AS B ON A.`UID` = B.`UID`
+WHERE `SALE` >= 100000;
+
+SELECT A.`SEQ`, A.`UID`,B.`NAME`,B.`POS`,`YEAR`,SUM(`SALE`) AS `합계` FROM `SALES` AS A
+JOIN `MEMBER` AS B ON A.`UID`=B.`UID`
+GROUP BY A.`UID`, A.`YEAR` HAVING `합계` >= 100000
+ORDER BY A.`YEAR` ASC, `합계` DESC;
+
+SELECT * FROM `SALES` AS A
+JOIN `MEMBER` AS B ON A.`UID`=B.`UID`
+JOIN `DEPARTMENT` AS C ON B.`DEP` = C.`DEPNO`;
+
+SELECT A.`SEQ`, A.`UID`,A.`SALE`,
+B.`NAME`,B.`POS`,
+C.`NAME` FROM `SALES` AS A
+JOIN `MEMBER` AS B ON A.`UID`=B.`UID`
+JOIN `DEPARTMENT` AS C ON B.`DEP` = C.`DEPNO`;
+
+SELECT A.`SEQ`, A.`UID`, A.`SALE`,
+B.`NAME`, B.`POS`, 
+C.`NAME` FROM `SALES` AS A
+JOIN `MEMBER` AS B ON A.`UID` = B.`UID`
+JOIN `DEPARTMENT` AS C ON B.`DEP` = C.`DEPNO`
+WHERE `SALE` > 100000
+ORDER BY `SALE` DESC;
+
+#실습 4-14 외부조인
+SELECT * FROM `SALES` AS A LEFT JOIN `MEMBER` AS B ON A.`UID` = B.`UID`;
+SELECT * FROM `SALES` AS A RIGHT JOIN `MEMBER` AS B ON A.`UID` = B.`UID`;
+
+SELECT A.`SEQ`, A.`UID`, `SALE`, `NAME`, `POS` FROM SALES AS A
+LEFT JOIN MEMBER AS B USING(UID);
+SELECT A.`SEQ`, A.`UID`, `SALE`, `NAME`, `POS` FROM SALES AS A
+RIGHT JOIN MEMBER AS B USING(UID);
+
+
+SELECT * FROM `SALES` AS A,
+`MEMBER` AS B
+WHERE A.`UID` = B.`UID`;			# WHERE 에서 JOIN  적용 
+
+
+#실습 4-15 모든 직원의 아이디, 이름 ,직급, 부서명 조회
+SELECT `UID`, A.`NAME`, `POS`, B.`NAME` 		# NAME 이 중복이기때문에 별칭을 활용해 구분
+FROM `MEMBER` AS A
+JOIN `DEPARTMENT` AS B
+ON A.DEP = B.DEPNO;
+
+#실습 4-16 김유신 직원의 2019년도 매출의 합 조회
+SELECT 
+SUM(`SALE`) AS `김유신 2019년 매출 합`
+FROM `SALES` AS A
+JOIN `MEMBER` AS B 
+ON A.`UID`= B.`UID`
+WHERE `NAME`='김유신' AND `YEAR`= 2019;
+
+#실습 4-17 2019년 50000이상 매출에 대해 직원별 매출의 합이 100000 이상인 직원 이름, 부서명, 직급, 년도, 매출합 조회. (단, DESC)
+SELECT 
+	B.`NAME`,
+	C.`NAME`,
+	B.`POS`,
+	A.`YEAR`,
+	SUM(`SALE`) AS `매출합`
+FROM `SALES` AS A
+JOIN `MEMBER` AS B ON A.UID = B.UID
+JOIN `DEPARTMENT` AS C ON B.DEP = C.DEPNO
+WHERE `YEAR`=2019 AND `SALE` >= 50000
+GROUP BY A.`UID`
+HAVING `매출합` >= 100000
+ORDER BY `매출합` DESC;
