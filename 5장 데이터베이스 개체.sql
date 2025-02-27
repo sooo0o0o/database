@@ -1,0 +1,227 @@
+# 날짜 : 2025.01.09
+# 이름 : 곽혜수
+# 내용 : 5장 데이터베이스 개체
+
+##인덱스(INDEX)##
+	#기본키 조회
+    
+#실습 5-1 인덱스 조회
+SHOW INDEX FROM `USER1`;
+SHOW INDEX FROM `USER2`;
+SHOW INDEX FROM `USER3`;
+
+#실습 5-2
+CREATE INDEX `IDX_USER1_UID` ON `USER1`(`UID`);
+ANALYZE TABLE `USER1`;
+
+#실습 5-3
+DROP INDEX `IDX_USER1_UID` ON `USER1`;
+
+##뷰(VIEW)##
+	# SELECT 결과를 가진 가상테이블 개체
+    
+#실습 5-4 뷰 생성
+CREATE VIEW `VW_USER1` AS (SELECT `NAME`, `HP`, `AGE` FROM `USER1`);
+CREATE VIEW `VW_USER4_AGE_UNDER30` AS (SELECT * FROM `USER4` WHERE `AGE` <30);
+
+CREATE VIEW `VW_MEMBER_WITH_SALES` AS (
+	SELECT
+    A.`UID`		AS `직원 아이디`,
+    B.`NAME`		AS `직원이름`,
+    B.`POS`		AS `직급`,
+    C.`NAME`		AS `부서명`,
+    A.`YEAR`		AS `매출년도`,
+    A.`MONTH`		AS `월`,
+    A.`SALE`		AS `매출액`
+FROM `SALES` AS A
+JOIN `MEMBER` AS B ON A.UID = B.UID
+JOIN `DEPARTMENT` AS C ON B.DEP = C.DEPNO
+);
+
+#실습 5-5 뷰 조회
+SELECT * FROM `VW_USER1`;
+SELECT * FROM `VW_USER2_AGE_UNDER30`;
+
+#실습 5-6 뷰 삭제
+DROP VIEW `VW_USER1`;
+DROP VIEW `VW_USER4_AGE_UNDER30`;
+
+
+##저장 프로시져(STORED PROCEDURE)##
+	#자주 사용하는 QUARY를 모듈화 해서 호출하는 방식으로 사용
+    #반환하지 X
+    #커서(CURSOR) : 테이블 조회 결과를 한 행씩 처리하는 개체
+
+#실습 5-7 프로시저 생성 및 실행 기본
+DELIMITER $$
+	CREATE PROCEDURE PROC_TEST1()
+    BEGIN
+		SELECT * FROM `MEMBER`;
+        SELECT * FROM `DEPARTMENT`;
+	END $$
+    DELIMITER ;
+    
+CALL PROC_TEST1
+
+
+#실습 5-8 매개변수를 갖는 프로시저 생성 및 실행
+DELIMITER $$
+	CREATE PROCEDURE PROC_TEST2(IN _USERNAME VARCHAR(10))
+    BEGIN
+		SELECT * FROM `MEMBER` WHERE `NAME` = _USERNAME;
+	END $$
+	DELIMITER ;
+    
+CALL PROC_TEST2('김유신');
+
+DELIMITER $$
+	CREATE PROCEDURE PROC_TEST3(IN _POS VARCHAR(10), IN _DEP TINYINT)
+    BEGIN
+		SELECT * FROM `MEMBER` WHERE `POS`= _POS AND `DEP` = _DEP;
+	END $$
+    DELIMITER ;
+    
+CALL PROC_TEST3('차장', 101);
+
+DELIMITER $$
+	CREATE PROCEDURE PROC_TEST4(IN _POS VARCHAR(10), OUT _COUNT INT)
+    BEGIN
+		SELECT COUNT(*) INTO _COUNT FROM `MEMBER` WHERE `POS`= _POS;
+	END $$
+    DELIMITER ;
+    
+CALL PROC_TEST4('대리',@_COUNT);
+SELECT CONCAT('_COUNT : ', @_COUNT);		#문자열 결합하는 함수 CONCAT
+
+
+#실습 5-9 프로시저 프로그래밍
+DELIMITER $$
+	CREATE PROCEDURE PROC_TEST5(IN _NAME VARCHAR(10))
+    BEGIN
+		DECLARE USERID VARCHAR(10);
+        SELECT `UID` INTO USERID FROM `MEMBER` WHERE `NAME` = _NAME;
+        SELECT * FROM `SALES` WHERE `UID` = USERID;
+	END $$
+    DELIMITER ;
+    
+CALL PROC_TEST5('김유신');
+    
+DELIMITER $$
+	CREATE PROCEDURE PROC_TEST6()
+    BEGIN
+		DECLARE NUM1 INT;
+        DECLARE NUM2 INT;
+        
+        SET NUM1 = 1;
+        SET NUM2 = 2;
+        
+        IF (NUM1>NUM2) THEN
+			SELECT 'NUM1 이 NUM2 보다 크다.' AS `결과2`;
+		ELSE 
+			SELECT 'NUM1 이 NUM2 보다 작다.' AS `결과2`;
+		END IF;
+	END $$
+    DELIMITER ;
+    
+CALL PROC_TEST6();
+    
+DELIMITER $$
+	CREATE PROCEDURE PROC_TEST7()
+    BEGIN
+		DECLARE SUM INT;
+        DECLARE NUM INT;
+        
+        SET SUM = 0;
+        SET NUM = 1;
+        
+        WHILE (NUM <= 10) DO
+			SET SUM = SUM + NUM;
+            SET NUM = NUM + 1;
+		END WHILE;
+        
+        SELECT SUM AS '1부터 10까지 합계';
+	END $$
+    DELIMITER ;
+
+CALL PROC_TEST7();
+    
+#실습 5-10 커서를 활용하는 프로시저
+DELIMITER $$
+	CREATE PROCEDURE PROC_TEST8()
+    BEGIN
+		#변수 선언
+        DECLARE TOTAL INT DEFAULT 0;
+        DECLARE PRICE INT;
+        DECLARE ENDOFROW BOOLEAN DEFAULT FALSE;
+        
+        #커서 선언
+        DECLARE SALESCURSOR CURSOR FOR
+			SELECT `SALE` FROM `SALES`;
+                    
+        #반복 조건
+		DECLARE CONTINUE HANDLER
+			FOR NOT FOUND SET ENDOFROW = TRUE;
+        
+        #커서 열기
+		OPEN SALESCURSOR;
+        
+        CURSOR_LOOP: LOOP
+			FETCH SALESCURSOR INTO PRICE;
+            
+            IF ENDOFROW THEN
+				LEAVE CURSOR_LOOP;
+                
+			END IF;
+            
+            SET TOTAL = TOTAL + PRICE;
+		END LOOP;
+        
+        SELECT TOTAL AS '전체 합계';
+        
+        CLOSE SALESCURSOR;
+	END $$
+    DELIMITER ;
+    
+    CALL PROC_TEST8();
+
+
+#실습 5-11 저장 함수
+
+	DELIMITER $$
+		CREATE FUNCTION FUNC_TEST1(_USERID VARCHAR(10)) RETURNS INT
+        DETERMINISTIC
+        BEGIN
+			DECLARE TOTAL INT;
+            
+            SELECT SUM(`SALE`) INTO TOTAL FROM `SALES` WHERE `UID`= _USERID;
+            
+            RETURN TOTAL;
+		END $$
+        DELIMITER ;
+        
+	SELECT FUNC_TEST1('A101');
+    
+    DELIMITER $$
+		CREATE FUNCTION FUNC_TEST2(_SALE INT) RETURNS DOUBLE
+        DETERMINISTIC
+        BEGIN
+			DECLARE BONUS DOUBLE;
+            
+            IF(_SALE >= 100000) THEN
+				SET BONUS = _SALE * 0.1;
+			ELSE
+				SET BONUS = _SALE * 0.05;
+			END IF;
+            
+		RETURN BONUS;
+        END $$
+        DELIMITER ;
+        
+	SELECT
+		`UID`,
+        `YEAR`,
+        `MONTH`,
+        `SALE`,
+        FUNC_TEST2(`SALE`) AS `BONUS`
+	FROM `SALE`;
+
